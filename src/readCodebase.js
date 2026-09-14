@@ -1,18 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-const TARGET_REPO_PATH = process.argv[2];
-
-if (!TARGET_REPO_PATH) {
-  console.error('Please provide a repo path: node readCodebase.js /path/to/repo');
-  process.exit(1);
-}
-
-if (!fs.existsSync(TARGET_REPO_PATH)) {
-  console.error(`Path does not exist: ${TARGET_REPO_PATH}`);
-  process.exit(1);
-}
-
 const IGNORE_DIRS = ['node_modules', '.git'];
 const IGNORE_FILES = ['package-lock.json'];
 const VALID_EXTENSIONS = ['.js', '.jsx', '.md', '.json'];
@@ -53,12 +41,5 @@ function readCodebase(repoPath) {
     };
   });
 }
-
-const codebaseFiles = readCodebase(TARGET_REPO_PATH);
-
-console.log(`Read ${codebaseFiles.length} files:\n`);
-codebaseFiles.forEach(f => {
-  console.log(`${f.relativePath} — ${f.lineCount} lines, ${f.content.length} characters`);
-});
 
 module.exports = { readCodebase };
