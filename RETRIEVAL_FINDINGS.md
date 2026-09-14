@@ -178,7 +178,7 @@ This document records deliberate tests of the RAG pipeline's retrieval and answe
 
 ## Summary
 
-Across nine deliberately varied test questions, the pipeline:
+Across eight deliberately varied test questions, the pipeline:
 - Correctly avoided hallucination in every case where information was genuinely absent (Tests 3, 4) or where a question assumed something false (Test 7)
 - Correctly synthesized accurate answers across multiple chunks and files when information was present (Tests 1, 2), including precise, single-fact technical questions (Test 6)
 - Demonstrated genuine reasoning beyond retrieved text — correctly inferring untested concurrent behavior from Node.js's execution model, not just retrieving and restating existing content (Test 8)
