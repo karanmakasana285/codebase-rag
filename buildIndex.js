@@ -1,7 +1,7 @@
 const { readCodebase } = require('./readCodebase');
 const { chunkFile } = require('./chunker');
 const { embedText } = require('./embedder');
-const { saveStore } = require('./vectorStore');
+const { saveEntries, clearStore, closeConnection } = require('./mongoVectorStore');
 
 const TARGET_REPO_PATH = process.argv[2];
 
@@ -32,8 +32,14 @@ async function buildIndex() {
     });
   }
 
-  saveStore(entries);
-  console.log(`\nDone. Indexed ${entries.length} chunks into vectorStore.json`);
+  console.log('Clearing old entries in MongoDB...');
+  await clearStore();
+
+  console.log('Saving new entries to MongoDB...');
+  await saveEntries(entries);
+
+  console.log(`\nDone. Indexed ${entries.length} chunks into MongoDB Atlas Vector Search.`);
+  await closeConnection();
 }
 
 buildIndex();
