@@ -1,7 +1,7 @@
-const { readCodebase } = require('./readCodebase');
-const { chunkFile } = require('./chunker');
-const { embedText } = require('./embedder');
-const { saveEntries, clearStore, closeConnection } = require('./mongoVectorStore');
+const { readCodebase } = require('../src/readCodebase');
+const { chunkFile } = require('../src/chunker');
+const { embedText } = require('../src/embedder');
+const { saveEntries, clearStore, closeConnection } = require('../src/mongoVectorStore');
 
 const TARGET_REPO_PATH = process.argv[2];
 

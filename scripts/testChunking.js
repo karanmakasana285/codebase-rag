@@ -1,5 +1,5 @@
-const { readCodebase } = require('./readCodebase');
-const { chunkFile } = require('./chunker');
+const { readCodebase } = require('../src/readCodebase');
+const { chunkFile } = require('../src/chunker');
 
 const TARGET_REPO_PATH = process.argv[2];
 

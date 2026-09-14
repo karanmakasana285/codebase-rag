@@ -1,4 +1,4 @@
-const { embedText } = require('./embedder');
+const { embedText } = require('../src/embedder');
 
 async function main() {
   const text = "This function handles idempotency for webhook processing.";

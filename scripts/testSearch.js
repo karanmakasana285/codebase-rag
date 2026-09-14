@@ -1,5 +1,5 @@
-const { embedText } = require('./embedder');
-const { loadStore, search } = require('./vectorStore');
+const { embedText } = require('../src/embedder');
+const { vectorSearch, closeConnection } = require('../src/mongoVectorStore');
 
 const QUERY = process.argv[2];
 
@@ -9,11 +9,8 @@ if (!QUERY) {
 }
 
 async function testSearch() {
-  const entries = loadStore();
-  console.log(`Loaded ${entries.length} chunks from vector store.\n`);
-
   const queryEmbedding = await embedText(QUERY);
-  const results = search(queryEmbedding, entries, 8);
+  const results = await vectorSearch(queryEmbedding, 8);
 
   console.log(`Top matches for: "${QUERY}"\n`);
   results.forEach((result, i) => {
@@ -22,6 +19,8 @@ async function testSearch() {
     console.log(result.content.slice(0, 200));
     console.log('');
   });
+
+  await closeConnection();
 }
 
 testSearch();
