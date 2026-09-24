@@ -1,3 +1,8 @@
+const OVERSIZE_TRIGGER_LINES = 80;
+const MIN_SUBCHUNK_LINES = 15;
+const TARGET_SUBCHUNK_LINES = 40;
+const HARD_MAX_SUBCHUNK_LINES = 60;
+
 function chunkJavaScript(content, relativePath) {
   const lines = content.split('\n');
   const chunks = [];
@@ -42,6 +47,61 @@ function chunkJavaScript(content, relativePath) {
   }
 
   return chunks;
+}
+
+function subSplitOversizedChunk(chunk) {
+  const lines = chunk.content.split('\n');
+  if (lines.length <= OVERSIZE_TRIGGER_LINES) return [chunk];
+
+  const boundaryPattern = /^\s*(const|let|function|export default function|return\s*\()/;
+  const subChunks = [];
+  let current = [];
+  let depth = 0;
+  let startLineOffset = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const currentSize = current.length;
+    const atSafeDepth = depth <= 1;
+    const isBoundary = boundaryPattern.test(line) && atSafeDepth;
+
+    const shouldCutAtBoundary = isBoundary && currentSize >= MIN_SUBCHUNK_LINES;
+    const shouldCutAtTarget = currentSize >= TARGET_SUBCHUNK_LINES && atSafeDepth;
+    const mustCutHardMax = currentSize >= HARD_MAX_SUBCHUNK_LINES;
+
+    const shouldCut = (shouldCutAtBoundary || shouldCutAtTarget || mustCutHardMax) &&
+      current.some(l => l.trim() !== '');
+
+    if (shouldCut) {
+      subChunks.push({
+        ...chunk,
+        content: current.join('\n').trim(),
+        startLine: (chunk.startLine || 1) + startLineOffset,
+        endLine: (chunk.startLine || 1) + i - 1,
+        subChunk: true
+      });
+      current = [];
+      startLineOffset = i;
+    }
+
+    current.push(line);
+
+    const openBraces = (line.match(/{/g) || []).length;
+    const closeBraces = (line.match(/}/g) || []).length;
+    depth += openBraces - closeBraces;
+  }
+
+  if (current.some(l => l.trim() !== '')) {
+    subChunks.push({
+      ...chunk,
+      content: current.join('\n').trim(),
+      startLine: (chunk.startLine || 1) + startLineOffset,
+      endLine: chunk.endLine,
+      subChunk: true
+    });
+  }
+
+  return subChunks.length > 1 ? subChunks : [chunk];
 }
 
 function chunkMarkdown(content, relativePath) {
@@ -104,7 +164,11 @@ function chunkFile(fileObj) {
     }];
   }
 
-  return chunks.filter(chunk => chunk.content.trim().length > 0);
+  const withSubSplitting = chunks.flatMap(chunk =>
+    (chunk.type === 'code') ? subSplitOversizedChunk(chunk) : [chunk]
+  );
+
+  return withSubSplitting.filter(chunk => chunk.content.trim().length > 0);
 }
 
 module.exports = { chunkFile };
