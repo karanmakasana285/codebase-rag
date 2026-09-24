@@ -210,15 +210,39 @@ The corrected answer is not just more complete — it's more precise, correctly 
 
 ---
 
+---
+
+## Test 10: Mixed relevant/irrelevant question — partial groundability
+
+**Question:** `"explain how the webhook handling works in this project, and also tell me if it uses blockchain for verifying anything"` — a genuinely mixed question where one half is answerable from the codebase and the other half asks about a concept (blockchain) that does not exist in it. A correct answer requires addressing both halves accurately, not just the retrievable one.
+
+**Background:** an earlier, unguarded expansion attempt on a differently-mixed question (asking to compare this project to an unrelated film) revealed that grounded query expansion could silently drop the irrelevant portion of a question when deciding what to search for, rather than explicitly acknowledging it was being set aside. The expansion prompt was updated to explicitly instruct: rewrite only the parts of the question that genuinely relate to the codebase, and do not invent code-related meaning for parts that don't — a more precise instruction than the original grounding fix, which didn't yet address how to handle partially-relevant questions specifically.
+
+**Expanded query (retrieval-only):** *"Can you explain how the webhook handling is implemented in this project? Specifically, how does the `/webhook/github` route process incoming GitHub issue events?"* — correctly narrowed to only the retrievable half, with no fabricated blockchain-related search terms.
+
+**Answer given (excerpt):**
+> [Full, accurate, code-quoting explanation of the webhook handler's 8-step flow — ping handling, action filtering, data extraction, idempotency check, classification, labeling, commenting, and response — citing the real code throughout.]
+>
+> **Does the project use blockchain for verification?**
+>
+> No. The provided code and README make no mention of blockchain technology, nor is there any import, library, or logic related to blockchain, cryptographic verification, or distributed ledger usage. All verification and state tracking are done locally: idempotency via an in-memory Set, GitHub authentication via a personal access token, LLM interaction via the Groq API. Therefore, the project does **not** use blockchain for any purpose.
+
+**Top retrieval scores:** README.md 0.8283, README.md 0.8108, README.md 0.8018, index.js 0.7821, README.md 0.7439, README.md 0.7015, README.md 0.6378, index.js 0.6368
+
+**Finding:** This is the more meaningful version of the mixed-question test, because — unlike the earlier film comparison, where dropping the irrelevant half changed nothing about correctness — here, a fully correct answer genuinely requires addressing *both* halves. The result confirms the pipeline's two-stage design handles this correctly by construction: query expansion narrows *retrieval* to only the groundable portion (avoiding wasted or hallucinated search effort on the ungroundable part), while final answer generation always operates on the **original, complete, unmodified question** — so the blockchain question still got a fully accurate, specifically-reasoned answer, entirely independent of what expansion chose to search for. This confirms the "expansion only affects retrieval, generation always sees the real question" architecture is a genuine safety net, not just a theoretical one.
+
+---
+
 ## Summary
 
-Across nine deliberately varied test questions, the pipeline:
+Across ten deliberately varied test questions, the pipeline:
 - Correctly avoided hallucination in every case where information was genuinely absent (Tests 3, 4) or where a question assumed something false (Test 7)
 - Correctly synthesized accurate answers across multiple chunks and files when information was present (Tests 1, 2), including precise, single-fact technical questions (Test 6)
 - Demonstrated genuine reasoning beyond retrieved text — correctly inferring untested concurrent behavior from Node.js's execution model, not just retrieving and restating existing content (Test 8)
 - Revealed one specific, real limitation on vague queries (Test 5) — not hallucination, but an incorrect claim about code location caused by weak retrieval on under-specified phrasing — which was diagnosed and addressed via grounded query expansion, with a documented before/after comparison
 - Revealed a second, distinct limitation — confident incompleteness on exhaustive/enumerative questions (Test 9) — where the system was fully accurate about what it included while silently omitting a relevant item and falsely asserting completeness. Diagnosed as a retrieval-width problem specific to recall-oriented questions, and fixed by detecting enumerative intent and dynamically widening retrieval for that question type, reflecting the general precision-vs-recall distinction in information retrieval
 - Refined the initial "documentation beats code in retrieval" finding (Test 1) into a more precise claim: broad, natural-language questions favor documentation prose, while precise, technically-worded questions (Test 6) retrieve code competitively or better
+- Confirmed that mixed relevant/irrelevant questions are handled correctly by design (Test 10): query expansion narrows retrieval to only the groundable portion, while final answer generation always operates on the complete original question, ensuring both parts of a genuinely mixed question receive accurate treatment
 
 A consistent pattern across tests: retrieval similarity scores were notably higher for on-topic, well-grounded questions than for unrelated or false-premise ones, suggesting score thresholding is a viable, low-effort future enhancement for proactively flagging low-confidence retrieval.
 
