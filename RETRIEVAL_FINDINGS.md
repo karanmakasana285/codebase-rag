@@ -176,15 +176,50 @@ This document records deliberate tests of the RAG pipeline's retrieval and answe
 
 ---
 
+
+## Test 9: Confident incompleteness — a distinct failure mode from hallucination
+
+**Question:** `"list every environment variable this project requires and what each one is used for"`
+
+**Initial result (top-8 retrieval, same as all other tests):** The answer correctly identified `GITHUB_TOKEN` and `GROQ_API_KEY`, accurately described their purpose, and explicitly stated: *"No other environment variables are required by the code as provided."* This claim was false — `index.js` also reads `process.env.PORT`, which simply wasn't among the top-8 retrieved chunks.
+
+**Why this is a distinct, important failure mode:** every other hallucination-related test (3, 4, 7) tested whether the system fabricates information that doesn't exist. This test revealed the opposite problem: the system was **entirely accurate about what it did include, while being silently incomplete** — and, critically, it explicitly asserted completeness ("no other variables are required") that it hadn't actually verified. This is a form of overconfidence distinct from hallucination: not inventing false content, but asserting completeness without the evidence to support it.
+
+**Root cause diagnosis:** the chunk containing `const PORT = process.env.PORT || 3000;` was confirmed, by inspecting full retrieved chunk content directly, to be entirely absent from the top-8 results for this question. This is a retrieval problem, not a generation problem — the LLM faithfully and accurately reported on exactly the context it was given; that context simply didn't include everything relevant. The PORT chunk likely scored lower because it's short, generic-looking code with weaker semantic similarity to "environment variables and their purpose" phrasing than the more clearly auth-related `GITHUB_TOKEN`/`GROQ_API_KEY` chunk.
+
+**Fix applied:** rather than uniformly increasing retrieval width for all questions (which would add irrelevant noise to precision-oriented questions), the system now detects enumerative/exhaustive question intent (via signal words: "every," "all," "list," "each," "entire") and dynamically widens retrieval from top-8 to top-20 specifically for those questions. This reflects a real distinction in information retrieval: precision-oriented questions ("what does X do") need the few most relevant chunks, while recall-oriented questions ("list every X") need broad coverage, since missing even one relevant item constitutes a failure regardless of how accurate the included items are.
+
+**Result after the fix**, same question, re-run:
+
+**Detected `topK`:** 20 (correctly triggered by "every" in the question)
+
+**The PORT chunk was retrieved** at rank 11 (score 0.5789) — well outside the original top-8 window, confirming why it was missed before and why widening was the correct fix.
+
+**Answer given:**
+> | Variable | Where it is read | What it is used for |
+> |---|---|---|
+> | `GITHUB_TOKEN` | `index.js` | Authenticates GitHub API calls (labeling, commenting) |
+> | `GROQ_API_KEY` | `index.js` | Authenticates calls to the Groq LLM for issue classification |
+> | `PORT` (optional) | `index.js` — `const PORT = process.env.PORT \|\| 3000;` | Allows the server's listening port to be overridden; defaults to 3000 if not set |
+>
+> These are the only environment variables required by the project as shown in the provided source files.
+
+The corrected answer is not just more complete — it's more precise, correctly distinguishing `PORT` as optional (has a fallback default) from `GITHUB_TOKEN`/`GROQ_API_KEY` as required (no fallback), a distinction the original incomplete answer had no opportunity to make.
+
+**Known limitation of this fix, stated honestly:** enumerative-question detection is a simple keyword heuristic, not a robust classifier — it would miss an exhaustive question phrased without any of the trigger words (e.g., "what environment configuration does this need"). A more robust version would have the LLM itself classify question intent (precision vs. recall-oriented) before deciding retrieval width, which is a reasonable, statable next step rather than a solved problem.
+
+---
+
 ## Summary
 
-Across eight deliberately varied test questions, the pipeline:
+Across nine deliberately varied test questions, the pipeline:
 - Correctly avoided hallucination in every case where information was genuinely absent (Tests 3, 4) or where a question assumed something false (Test 7)
 - Correctly synthesized accurate answers across multiple chunks and files when information was present (Tests 1, 2), including precise, single-fact technical questions (Test 6)
 - Demonstrated genuine reasoning beyond retrieved text — correctly inferring untested concurrent behavior from Node.js's execution model, not just retrieving and restating existing content (Test 8)
 - Revealed one specific, real limitation on vague queries (Test 5) — not hallucination, but an incorrect claim about code location caused by weak retrieval on under-specified phrasing — which was diagnosed and addressed via grounded query expansion, with a documented before/after comparison
+- Revealed a second, distinct limitation — confident incompleteness on exhaustive/enumerative questions (Test 9) — where the system was fully accurate about what it included while silently omitting a relevant item and falsely asserting completeness. Diagnosed as a retrieval-width problem specific to recall-oriented questions, and fixed by detecting enumerative intent and dynamically widening retrieval for that question type, reflecting the general precision-vs-recall distinction in information retrieval
 - Refined the initial "documentation beats code in retrieval" finding (Test 1) into a more precise claim: broad, natural-language questions favor documentation prose, while precise, technically-worded questions (Test 6) retrieve code competitively or better
 
-A consistent pattern across tests: retrieval similarity scores were notably higher for on-topic, well-grounded questions (0.6–0.87) than for unrelated or false-premise ones (0.51–0.73), suggesting score thresholding is a viable, low-effort future enhancement for proactively flagging low-confidence retrieval.
+A consistent pattern across tests: retrieval similarity scores were notably higher for on-topic, well-grounded questions than for unrelated or false-premise ones, suggesting score thresholding is a viable, low-effort future enhancement for proactively flagging low-confidence retrieval.
 
-**Known open item:** a completeness test (asking the system to list every environment variable the project requires) returned a confidently-stated but incomplete answer — it correctly identified `GITHUB_TOKEN` and `GROQ_API_KEY` but omitted `PORT`, while still claiming full completeness. This is being investigated further before being added here, since it represents a distinct and important failure mode (confident incompleteness, not incorrectness) worth documenting carefully rather than summarizing hastily.
+Two distinct failure modes were identified and fixed over the course of testing — vague-query under-retrieval (Test 5, fixed via grounded query expansion) and enumerative-question under-retrieval (Test 9, fixed via intent-aware retrieval width) — both diagnosed through direct inspection of retrieved chunk content rather than assumption, and both fixes carry an honestly-stated limitation of their own rather than being presented as complete solutions.
