@@ -29,6 +29,11 @@ function buildGrounding(repoPath) {
   return cachedGrounding;
 }
 
+function isEnumerativeQuestion(question) {
+  const enumerativeSignals = /\b(every|all|list|each|entire)\b/i;
+  return enumerativeSignals.test(question);
+}
+
 function buildPrompt(question, chunks) {
   const context = chunks
     .map((chunk, i) => `[Chunk ${i + 1} — ${chunk.filePath}]\n${chunk.content}`)
@@ -70,9 +75,11 @@ Original question: ${question}`
   return completion.choices[0].message.content.trim();
 }
 
-async function answerQuestion(question, repoPath, topK = 8) {
+async function answerQuestion(question, repoPath) {
   const groundingContext = buildGrounding(repoPath);
   const expandedQuery = await expandQuery(question, groundingContext);
+
+  const topK = isEnumerativeQuestion(question) ? 20 : 8;
 
   const queryEmbedding = await embedText(expandedQuery);
   const chunks = await vectorSearch(queryEmbedding, topK);
@@ -88,7 +95,8 @@ async function answerQuestion(question, repoPath, topK = 8) {
   return {
     answer: completion.choices[0].message.content,
     sourceChunks: chunks,
-    expandedQuery
+    expandedQuery,
+    topK
   };
 }
 

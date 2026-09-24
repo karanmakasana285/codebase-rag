@@ -13,9 +13,10 @@ async function main() {
   console.log(`Question: ${QUESTION}\n`);
   console.log('Searching and generating answer...\n');
 
-  const { answer, sourceChunks, expandedQuery } = await answerQuestion(QUESTION, REPO_PATH);
+  const { answer, sourceChunks, expandedQuery, topK } = await answerQuestion(QUESTION, REPO_PATH);
 
-  console.log(`Expanded for retrieval: ${expandedQuery}\n`);
+  console.log(`Expanded for retrieval: ${expandedQuery}`);
+  console.log(`Retrieval width (topK): ${topK}\n`);
 
   console.log('=== ANSWER ===\n');
   console.log(answer);
@@ -23,6 +24,7 @@ async function main() {
   console.log('\n=== SOURCES ===');
   sourceChunks.forEach((chunk, i) => {
     console.log(`${i + 1}. ${chunk.filePath} (score: ${chunk.score.toFixed(4)})`);
+    console.log(`   ${chunk.content.slice(0, 300).replace(/\n/g, ' ')}`);
   });
 
   await closeConnection();
