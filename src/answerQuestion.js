@@ -64,7 +64,7 @@ async function expandQuery(question, groundingContext) {
 
 ${groundingContext}
 
-Based ONLY on this, rewrite the following vague question into a more specific version that would help find relevant code — do not invent concepts this context doesn't support. Keep it to 2-3 sentences. Only return the rewritten question, nothing else.
+Rewrite the following question into a version optimized for finding relevant code. If the question contains parts that are genuinely unrelated to this codebase (e.g., comparisons to unrelated topics, people, or things outside software), do not force those parts into a code-related rewrite — leave them out of the rewrite, but do not invent code-related meaning for them either. Only rewrite the parts that genuinely relate to the codebase. Keep it to 2-3 sentences. Only return the rewritten question, nothing else.
 
 Original question: ${question}`
     }],
@@ -79,7 +79,7 @@ async function answerQuestion(question, repoPath) {
   const groundingContext = buildGrounding(repoPath);
   const expandedQuery = await expandQuery(question, groundingContext);
 
-  const topK = isEnumerativeQuestion(question) ? 20 : 8;
+  const topK = isEnumerativeQuestion(question) ? 20 : 5;
 
   const queryEmbedding = await embedText(expandedQuery);
   const chunks = await vectorSearch(queryEmbedding, topK);
