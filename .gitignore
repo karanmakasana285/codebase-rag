@@ -1,3 +1,4 @@
 node_modules/
-.envvectorStore.json
-.env.DS_Store
+.env
+vectorStore.json
+.DS_Store
