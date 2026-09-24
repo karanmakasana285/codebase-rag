@@ -79,7 +79,7 @@ async function answerQuestion(question, repoPath) {
   const groundingContext = buildGrounding(repoPath);
   const expandedQuery = await expandQuery(question, groundingContext);
 
-  const topK = isEnumerativeQuestion(question) ? 20 : 5;
+  const topK = isEnumerativeQuestion(question) ? 20 : 8;
 
   const queryEmbedding = await embedText(expandedQuery);
   const chunks = await vectorSearch(queryEmbedding, topK);
